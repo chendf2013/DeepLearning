@@ -87,8 +87,8 @@ training_step = tf.Variable(0, trainable=False)
 variable_averages = tf.train.ExponentialMovingAverage(0.99, training_step)
 variables_averages_op = variable_averages.apply(tf.trainable_variables())
 average_y = hidden_layer(x, regularizer, variable_averages, resuse=True)
-crorent_predicition = tf.equal(tf.arg_max(average_y, 1), tf.argmax(y_, 1))
-accuracy = tf.reduce_mean(tf.cast(crorent_predicition, tf.float32))
+current_prediction = tf.equal(tf.arg_max(average_y, 1), tf.argmax(y_, 1))
+accuracy = tf.reduce_mean(tf.cast(current_prediction, tf.float32))
 
 
 cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=y, labels=tf.argmax(y_, 1))
