@@ -193,7 +193,7 @@ tf.nn.in_top_k(prediction, target, K):prediction就是表示你预测的结果�
 """
 
 # 规定计算顺序
-with tf.control_dependencies([train_step, val_accuracy]):
+with tf.control_dependencies([train_step, averages_op]):
     """
     先进行反向传播训练，再进行验证集验证
     """
@@ -212,7 +212,7 @@ if __name__ == '__main__':
             # 对数据进行处理
             x_train = np.reshape(x_train, (batch_size, 28, 28, 1))
             # 开始训练
-            sess.run(train_step, feed_dict={x: x_train, y_label: y_train})
+            sess.run(train_op, feed_dict={x: x_train, y_label: y_train})
             # 每一百次进行验证
             if train_steps % 500 == 0:
                 # 获取验证集batch
@@ -222,7 +222,7 @@ if __name__ == '__main__':
                 accuracy_rate = sess.run(val_accuracy, feed_dict=validate_feed)
                 print(
                     "After a {} training sessions,the accuracy_rate is "
-                    "{}%".format(str(train_steps), str(np.sum(accuracy_rate))))
+                    "{}%".format(str(train_steps), str(np.sum(accuracy_rate)*100/batch_size)))
         # 训练完毕，测试集测试
         # 获取验证集图片个数
         num_of_test_pic = mnist.test.images.shape[0]

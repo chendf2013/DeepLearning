@@ -4,8 +4,8 @@ import random
 import numpy as np
 from tensorflow.python.platform import gfile
 
-input_data = "/home/jiangziyang/flower_photos"
-CACHE_DIR = "/home/jiangziyang/datasets/bottleneck"
+input_data = "C:\\Users\\xiaomi\\Desktop\\DeepLearning\\data\\flower_photos"
+CACHE_DIR = "C:\\Users\\xiaomi\\Desktop\\DeepLearning\\data\\bottleneck"
 
 
 def create_image_dict():
@@ -176,6 +176,10 @@ def get_random_bottlenecks(sess, num_classes, image_lists, batch_size, data_cate
         label[random_index] = 1.0
         labels.append(label)
         bottlenecks.append(bottleneck)
+    print(len(bottlenecks))
+    print(bottlenecks)
+    print(len(labels))
+    print(labels)
     return bottlenecks, labels
 
 
