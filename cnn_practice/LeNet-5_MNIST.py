@@ -1,3 +1,4 @@
+# 卷积网络的经典鼻祖
 import math
 import tensorflow as tf
 import numpy as np

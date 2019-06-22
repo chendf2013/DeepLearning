@@ -1,3 +1,10 @@
+# 使用了模型迁移
+# 加入LRN层（被证实没啥用处）
+# 使用Inception模块
+# 平均池化和最大池化都运用了
+# 加入了BN层
+
+
 import tensorflow as tf
 import os.path
 import random
