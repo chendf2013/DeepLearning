@@ -209,5 +209,3 @@ with tf.Graph().as_default():
         print('%s: Forward-backward across %d steps, %.3f +/- %.3f sec / batch' %
               (datetime.now(), num_batches, back_avg_t,
                math.sqrt(back_total_dura_squared / num_batches - back_avg_t * back_avg_t)))
-
-
