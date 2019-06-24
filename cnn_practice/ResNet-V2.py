@@ -13,7 +13,6 @@ num_batches = 100
 num_steps_burn_in = 10
 total_duration = 0.0
 total_duration_squared = 0.0
-inputs = tf.random_uniform((batch_size, 224, 224, 3))
 
 
 class Block(collections.namedtuple("block", ["name", "residual_unit", "args"])):
@@ -76,7 +75,7 @@ def residual_unit(inputs, depth, depth_residual, stride, outputs_collections=Non
         preact = slim.batch_norm(inputs, activation_fn=tf.nn.relu, scope="preac")
 
         # 全等映射
-        # 输入通道数和要输出的通道数一致，则考虑进行降采样操作，
+        # 输入通道数和要输出的通道数一致，则考虑进行降采样操作（实现连接），
         if depth == depth_input:
             # 如果stride等于1，则不进行降采样操作，
             if stride == 1:
@@ -84,16 +83,16 @@ def residual_unit(inputs, depth, depth_residual, stride, outputs_collections=Non
             # 如果stride不等于1，则使用max_pool2d，进行步长为stride且池化核为1x1的降采样操作
             else:
                 identity = slim.max_pool2d(inputs, [1, 1], stride=stride, scope="shortcut")
-        # 输入通道数和要输出的通道数不一致，则使用NIN卷积操作使输入通道数和输出通道数一致
+        # 输入通道数和要输出的通道数不一致，则使用NIN卷积操作使输入通道数和输出通道数一致（虚线链接）
         else:
             identity = slim.conv2d(preact, depth, [1, 1], stride=stride, normalizer_fn=None,
                                    activation_fn=None, scope="shortcut")
 
-        # 卷积操作
-        residual = slim.conv2d(preact, depth_residual, [1, 1], stride=1, scope="conv1")
-        residual = conv2d_same(residual, depth_residual, 3, stride, scope="conv2")
+        # 卷积块操作（减少计算和参数量）
+        residual = slim.conv2d(preact, depth_residual, [1, 1], stride=1, scope="conv1")  # 降低维度
+        residual = conv2d_same(residual, depth_residual, 3, stride, scope="conv2")  # 卷积操作
         residual = slim.conv2d(residual, depth, [1, 1], stride=1, normalizer_fn=None,
-                               activation_fn=None, scope="conv3")
+                               activation_fn=None, scope="conv3")  # 恢复维度
 
         # 将identity的结果和residual的结果相加
         output = identity + residual
@@ -124,7 +123,6 @@ def resnet_v2(inputs, blocks, num_classes, reuse=None, scope=None):
             for block in blocks:
                 # block.name分别为block1、block2、block3和block4
                 with tf.variable_scope(block.name, "block", [net]) as sc:
-
                     # tuple_value为Block类的args参数中的每一个元组值，
                     # i是这些元组在每一个Block的args参数中的序号
                     for i, tuple_value in enumerate(block.args):
@@ -137,6 +135,7 @@ def resnet_v2(inputs, blocks, num_classes, reuse=None, scope=None):
                                                       stride=stride)
                     # net就是每一个块的结构
                     net = slim.utils.collect_named_outputs(end_points_collection, sc.name, net)
+                    """将变量取个别名，并收集到collection中 """
 
             # 对net使用slim.batch_norm()函数进行BatchNormalization操作
             net = slim.batch_norm(net, activation_fn=tf.nn.relu, scope="postnorm")
@@ -171,35 +170,46 @@ def resnet_v2_152(inputs, num_classes, reuse=None, scope="resnet_v2_152"):
 
 
 # 初始化变量以及常量
-def arg_scope(is_training=True, weight_decay=0.0001, batch_norm_decay=0.997,
-              batch_norm_epsilon=1e-5, batch_norm_scale=True):
+@slim.add_arg_scope
+def arg_scope(is_training=True, weight_decay=0.0001, batch_norm_decay=0.997, batch_norm_epsilon=1e-5,
+              batch_norm_scale=True):
     batch_norm_params = {"is_training": is_training,
                          "decay": batch_norm_decay,
                          "epsilon": batch_norm_epsilon,
                          "scale": batch_norm_scale,
                          "updates_collections": tf.GraphKeys.UPDATE_OPS}
-
+    # 定义slim.conv2d()函数的参数空间
     with slim.arg_scope([slim.conv2d],
                         # weights_initializer用于指定权重的初始化程序
                         weights_initializer=slim.variance_scaling_initializer(),
                         # weights_regularizer为权重可选的正则化程序
                         weights_regularizer=slim.l2_regularizer(weight_decay),
                         # activation_fn用于激活函数的指定，默认的为ReLU函数
+                        activation_fn=tf.nn.relu,
+                        normalizer_fn=slim.batch_norm,
                         # normalizer_params用于指定正则化函数的参数
-                        activation_fn=tf.nn.relu, normalizer_fn=slim.batch_norm,
                         normalizer_params=batch_norm_params):
         # 定义slim.batch_norm()函数的参数空间
         with slim.arg_scope([slim.batch_norm], **batch_norm_params):
+            """
+            slim.batch_norm()函数，以及slim的各个层函数的normalizer_fn=slim.batch_norm调用都会用到，
+            其参数很多，需要以字典的形式传入。
+            slim.batch_norm是BN算法函数，在网络训练的时候加入BN能加快训练速度，同时能增强模型的泛化能力。
+            """
             # slim.max_pool2d()函数的参数空间
             with slim.arg_scope([slim.max_pool2d], padding="SAME") as arg_scope:
                 return arg_scope
 
 
+# 模拟图片数据
+inputs = tf.random_uniform((batch_size, 224, 224, 3))
+
 # 定义模型的前向传播过程，这被限制在一个参数空间中
 with slim.arg_scope(arg_scope(is_training=False)):
     """
     slim是一种轻量级的tensorflow库，可以使模型的构建，训练，测试都变得更加简单。
-    在slim库中对很多常用的函数进行了定义，slim.arg_scope（）是slim库中经常用到的函数之一。
+    slim.arg_scope（）是slim库中经常用到的函数之一
+    slim.arg_scope常用于为tensorflow里的layer函数提供默认值以使构建模型的代码更加紧凑苗条：
     函数的定义如下；
     用法：def arg_scope(list_ops_or_scope, **kwargs):
     作用：存储给定list_ops集合的默认参数
@@ -207,12 +217,19 @@ with slim.arg_scope(arg_scope(is_training=False)):
     所以使用slim.arg_scope（）有两个步骤：
     1,用@slim.add_arg_scope修饰目标函数
     2,用slim.arg_scope（）为目标函数设置默认参数.
+    
+    在使用过程中可以直接slim.conv2d( )等函数设置默认参数。例如在下面的代码中，不做单独声明的情况下，
+    slim.conv2d, slim.max_pool2d, slim.avg_pool2d三个函数默认的步长都设为1，
+    padding模式都是'VALID'的。但是也可以在调用时进行单独声明。这种参数设置方式在构建网络模型时，尤其是较深的网络时，可以节省时间。
+     with slim.arg_scope(
+                    [slim.conv2d, slim.max_pool2d, slim.avg_pool2d],stride = 1, padding = 'VALID'):
+                net = slim.conv2d(inputs, 32, [3, 3], stride = 2, scope = 'Conv2d_1a_3x3')
+                net = slim.conv2d(net, 32, [3, 3], scope = 'Conv2d_2a_3x3')
+                net = slim.conv2d(net, 64, [3, 3], padding = 'SAME', scope = 'Conv2d_2b_3x3')
     """
     # 设置的默认参数是arg_scope函数中is_training=False
     # resnet_v2_152函数需要add_arg_scope装饰，且传入的参数是（inputs, 1000）
     net = resnet_v2_152(inputs, 1000)
-
-
 
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
@@ -222,7 +239,7 @@ with tf.Session() as sess:
     for i in range(num_batches + num_steps_burn_in):
         start_time = time.time()
         _ = sess.run(net)
-        print(_.shape)
+        # print(_.shape)
         duration = time.time() - start_time
         if i >= num_steps_burn_in:
             if i % 10 == 0:
