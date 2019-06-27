@@ -198,9 +198,10 @@ with tf.control_dependencies([train_step, averages_op]):
     """
     先进行反向传播训练，再进行验证集验证
     """
+    # with tf.device("/gpu:0"):
     train_op = tf.no_op(name="train")
 if __name__ == '__main__':
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
         # 必须初始化参数
         tf.global_variables_initializer().run()
         # 进行训练
