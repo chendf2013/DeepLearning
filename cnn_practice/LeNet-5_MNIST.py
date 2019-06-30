@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 
-mnist = input_data.read_data_sets("C:\\Users\\xiaomi\\Desktop\\DeepLearning\\data\\minist-10-batches", one_hot=True)
+mnist = input_data.read_data_sets("C:\\Users\\chend\\Desktop\\DeepLearning\\data\\minist-10-batches", one_hot=True)
 
 # 初始化超参数
 learning_rate = 0.01  # 学习率

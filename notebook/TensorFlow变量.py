@@ -12,3 +12,5 @@ with tf.compat.v1.Session()as sess:
     sess.run(init_op)
     weg = sess.run(weights)
     print(weg)
+
+    
